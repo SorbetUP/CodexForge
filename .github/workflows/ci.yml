@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate shell syntax
+        run: |
+          bash -n install.sh
+          bash -n uninstall.sh
+          bash -n init-project-memory.sh
+          bash -n bootstrap.sh
+          bash -n templates/codex-stack.sh
+          bash -n templates/codex-stack-doctor.sh
+
+      - name: Validate project-memory bootstrap
+        run: |
+          tmpdir="$(mktemp -d)"
+          bash ./init-project-memory.sh "$tmpdir"
+          test -f "$tmpdir/.codex-memory/PROJECT.md"
+          test -f "$tmpdir/.codex-memory/DECISIONS.md"
+          test -f "$tmpdir/.codex-memory/TASKS.md"
+          test -f "$tmpdir/.codex-memory/SESSION.md"
+          test -f "$tmpdir/AGENTS.md"

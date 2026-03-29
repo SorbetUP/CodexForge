@@ -1,5 +1,7 @@
 # CodexForge
 
+[![CI](https://github.com/SorbetUP/CodexForge/actions/workflows/ci.yml/badge.svg)](https://github.com/SorbetUP/CodexForge/actions/workflows/ci.yml)
+
 Portable token-efficiency stack for Codex.
 
 CodexForge bundles:
@@ -9,6 +11,32 @@ CodexForge bundles:
 - a Codex-native persistent memory layer inspired by `MemStack`
 
 The goal is simple: spend fewer tokens, keep multi-session work usable longer, and make the setup easy to reinstall on a new machine.
+
+## Quick Start
+
+```bash
+git clone https://github.com/SorbetUP/CodexForge.git
+cd CodexForge
+./install.sh
+codex-stack-doctor
+codex-stack
+```
+
+## Try It Now
+
+If you want to test it immediately on your current machine:
+
+```bash
+cd /Users/sorbet/Desktop/Dev/agent/CodexForge
+./install.sh
+~/.local/bin/codex-stack-doctor
+~/.local/bin/codex-stack --version
+```
+
+Expected result:
+
+- `codex-stack-doctor` should show only `[ok]`
+- `codex-stack --version` should print the Headroom wrapper banner, then `codex-cli ...`
 
 ## What It Does
 
@@ -39,6 +67,12 @@ codex-stack
 
 ```bash
 codex-stack-doctor
+```
+
+You can also check that Codex launches through Headroom:
+
+```bash
+codex-stack --version
 ```
 
 ## Project Memory
