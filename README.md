@@ -38,6 +38,40 @@ Expected result:
 - `codex-stack-doctor` should show only `[ok]`
 - `codex-stack --version` should print the Headroom wrapper banner, then `codex-cli ...`
 
+## GUI App (macOS)
+
+CodexForge can also be used with the Codex desktop app on macOS.
+
+The GUI path works differently from the CLI:
+
+- `AGENTS.md` and `.codex-memory` are already shared through `~/.codex`
+- `Headroom` must be injected into the app through the macOS GUI environment
+- this requires restarting `Codex.app` after enabling the environment
+
+Enable GUI mode:
+
+```bash
+codexforge-gui-enable
+```
+
+Restart the app:
+
+```bash
+codexforge-gui-restart
+```
+
+Verify GUI mode:
+
+```bash
+codexforge-gui-doctor
+```
+
+Disable GUI mode:
+
+```bash
+codexforge-gui-disable
+```
+
 ## What It Does
 
 - installs `Headroom` into an isolated virtualenv under `~/.codex-stack/venv`
@@ -102,4 +136,5 @@ The script creates:
 - `MemStack` is designed for Claude Code. CodexForge adapts the same useful idea, persistent compact memory, using files and conventions that Codex can read directly.
 - `Headroom` does not permanently rewrite your whole shell environment. `OPENAI_BASE_URL` is injected by `codex-stack`.
 - `RTK` remains globally installed because that is how it integrates with Codex.
+- For the macOS desktop app, `OPENAI_BASE_URL` is injected with `launchctl setenv`, then applied after restarting `Codex.app`.
 - Sources: [Headroom](https://github.com/chopratejas/headroom), [RTK](https://github.com/rtk-ai/rtk), [MemStack](https://github.com/cwinvestments/memstack)

@@ -5,8 +5,9 @@ STACK_HOME="${HOME}/.codex-stack"
 BIN_DIR="${HOME}/.local/bin"
 CODEX_DIR="${HOME}/.codex"
 
-rm -f "${BIN_DIR}/codex-stack" "${BIN_DIR}/codex-stack-doctor"
+rm -f "${BIN_DIR}/codex-stack" "${BIN_DIR}/codex-stack-doctor" "${BIN_DIR}/codexforge-gui-enable" "${BIN_DIR}/codexforge-gui-disable" "${BIN_DIR}/codexforge-gui-doctor" "${BIN_DIR}/codexforge-gui-restart"
 rm -rf "${STACK_HOME}"
+launchctl unsetenv OPENAI_BASE_URL >/dev/null 2>&1 || true
 
 if command -v rtk >/dev/null 2>&1; then
   rtk init -g --codex --uninstall >/dev/null 2>&1 || true

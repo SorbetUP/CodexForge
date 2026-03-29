@@ -58,7 +58,6 @@ install_rtk() {
 
 write_launcher() {
   sed \
-    -e "s|__STACK_HOME__|${STACK_HOME}|g" \
     -e "s|__HEADROOM_BIN__|${HEADROOM_BIN}|g" \
     -e "s|__ROOT_DIR__|${ROOT_DIR}|g" \
     "${ROOT_DIR}/templates/codex-stack.sh" > "${BIN_DIR}/codex-stack"
@@ -70,6 +69,25 @@ write_launcher() {
     -e "s|__CODEX_DIR__|${CODEX_DIR}|g" \
     "${ROOT_DIR}/templates/codex-stack-doctor.sh" > "${BIN_DIR}/codex-stack-doctor"
   chmod +x "${BIN_DIR}/codex-stack-doctor"
+
+  sed \
+    -e "s|__STACK_HOME__|${STACK_HOME}|g" \
+    -e "s|__HEADROOM_BIN__|${HEADROOM_BIN}|g" \
+    "${ROOT_DIR}/templates/codexforge-gui-enable.sh" > "${BIN_DIR}/codexforge-gui-enable"
+  chmod +x "${BIN_DIR}/codexforge-gui-enable"
+
+  sed \
+    -e "s|__STACK_HOME__|${STACK_HOME}|g" \
+    "${ROOT_DIR}/templates/codexforge-gui-disable.sh" > "${BIN_DIR}/codexforge-gui-disable"
+  chmod +x "${BIN_DIR}/codexforge-gui-disable"
+
+  sed \
+    -e "s|__STACK_HOME__|${STACK_HOME}|g" \
+    "${ROOT_DIR}/templates/codexforge-gui-doctor.sh" > "${BIN_DIR}/codexforge-gui-doctor"
+  chmod +x "${BIN_DIR}/codexforge-gui-doctor"
+
+  cp "${ROOT_DIR}/templates/codexforge-gui-restart.sh" "${BIN_DIR}/codexforge-gui-restart"
+  chmod +x "${BIN_DIR}/codexforge-gui-restart"
 }
 
 ensure_marker_block() {
