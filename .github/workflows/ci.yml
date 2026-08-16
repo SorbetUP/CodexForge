@@ -26,6 +26,13 @@ jobs:
           bash -n templates/*.sh
           bash -n scripts/*.sh
           bash -n tests/e2e/*.sh
+      - name: Validate Node syntax
+        run: |
+          node --check bin/codex-forge
+          node --check optimizer/server.mjs
+          node --check optimizer/tool-result-aging.mjs
+          node --check scripts/context-audit.mjs
+          node --check scripts/benchmark-live-ab.mjs
       - name: Validate project-memory bootstrap
         run: |
           tmpdir="$(mktemp -d)"

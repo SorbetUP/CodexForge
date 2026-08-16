@@ -4,7 +4,7 @@ STACK_HOME="${HOME}/.codex-stack"; FORGE_HOME="${HOME}/.codex-forge"; BIN_DIR="$
 if [[ -x "${BIN_DIR}/codex-forge" ]]; then "${BIN_DIR}/codex-forge" optimizer disable >/dev/null 2>&1 || true; fi
 rm -f "${BIN_DIR}/codex-stack" "${BIN_DIR}/codex-stack-doctor" "${BIN_DIR}/codex-forge" "${BIN_DIR}/codexforge-gui-enable" "${BIN_DIR}/codexforge-gui-disable" "${BIN_DIR}/codexforge-gui-doctor" "${BIN_DIR}/codexforge-gui-restart"
 rm -rf "${STACK_HOME}" "${FORGE_HOME}"
-for skill in opencodex-operator real-user-validation token-efficiency cost-quality-routing provider-safety; do rm -rf "${USER_SKILLS_DIR}/${skill}"; done
+for skill in opencodex-operator real-user-validation token-efficiency cost-quality-routing provider-safety programmatic-tool-calling skill-learning compact-output executable-skill-harness; do rm -rf "${USER_SKILLS_DIR}/${skill}"; done
 launchctl unsetenv OPENAI_BASE_URL >/dev/null 2>&1 || true
 if command -v rtk >/dev/null 2>&1; then rtk init -g --codex --uninstall >/dev/null 2>&1 || true; fi
 if [[ -f "${CODEX_DIR}/AGENTS.md" ]]; then python3 - <<'PY'

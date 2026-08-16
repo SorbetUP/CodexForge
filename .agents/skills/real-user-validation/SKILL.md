@@ -12,6 +12,8 @@ Treat "works" as an observable contract, not a code-path claim.
 5. Unit tests may localize bugs but never replace the end-to-end proof.
 6. Never spend provider quota in CI. Live provider tests require both `--live` and `--yes`.
 7. Fail if a test merely checks that a function was called. Prefer actual process execution, real HTTP sockets, filesystem state, and the same CLI a user runs.
-8. Report exactly what was tested, what was not, and any remaining environment-dependent risk.
+8. For code-changing work, do not claim completion before running the narrowest relevant real test/build/lint. If it fails, keep working unless an external blocker makes further progress impossible.
+9. Verification itself has a cost. Start narrow, then broaden only when the change or risk warrants it; do not rerun a full suite after every tiny edit.
+10. Report exactly what was tested, what was not, and any remaining environment-dependent risk.
 
-For CodexForge run `scripts/test-all.sh`. For a real provider path run `scripts/test-all.sh --live --yes` only with explicit permission to consume quota.
+For CodexForge run `scripts/test-all.sh`. For a real provider path run `scripts/test-all.sh --live --yes` only with explicit permission to consume quota. For cost/quality comparison use `codex-forge benchmark --live --yes`.

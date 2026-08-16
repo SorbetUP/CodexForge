@@ -1,34 +1,177 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from 'node:child_process';
+import { cp, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { OutputStore } from '../optimizer/output-store.mjs';
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); const args = process.argv.slice(2); const cmd = args.shift();
-function run(name, argv, opts = {}) { const child = spawnSync(name, argv, { stdio:'inherit', ...opts }); if (child.error) { console.error(`${name}: ${child.error.message}`); process.exit(1); } process.exit(child.status ?? 1); }
-function help() { console.log(`codex-forge commands:\n  doctor\n  opencodex install --yes | start | service | init | gui | doctor\n  optimizer start | enable | disable | stats\n  output get <sha256> [--offset N] [--length N]\n  output grep <sha256> <text>\n  output tail <sha256> [bytes]\n  test [--live --yes]`); }
-if (!cmd || cmd === 'help' || cmd === '--help') { help(); process.exit(0); }
-if (cmd === 'doctor') {
-  const checks = [['node >= 18', Number(process.versions.node.split('.')[0]) >= 18], ['ocx installed', spawnSync('ocx', ['--help'], { stdio:'ignore' }).status === 0], ['codex installed', spawnSync('codex', ['--version'], { stdio:'ignore' }).status === 0]];
-  for (const [name, ok] of checks) console.log(`[${ok ? 'ok' : 'ko'}] ${name}`);
-  const health = spawnSync('curl', ['-fsS','http://127.0.0.1:10100/healthz'], { stdio:'ignore' }).status === 0; console.log(`[${health ? 'ok' : 'info'}] OpenCodex proxy ${health ? 'reachable' : 'not running on :10100'}`); process.exit(checks.some(([,ok]) => !ok) ? 1 : 0);
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const args = process.argv.slice(2);
+const cmd = args.shift();
+
+function run(name, argv, opts = {}) {
+  const child = spawnSync(name, argv, { stdio: 'inherit', ...opts });
+  if (child.error) { console.error(`${name}: ${child.error.message}`); process.exit(1); }
+  process.exit(child.status ?? 1);
 }
+
+function help() {
+  console.log(`codex-forge commands:\n` +
+    `  doctor\n` +
+    `  opencodex install --yes | start | service | init | gui | doctor\n` +
+    `  optimizer start | enable | disable | stats\n` +
+    `  output get <sha256> [--offset N] [--length N]\n` +
+    `  output grep <sha256> <text>\n` +
+    `  output tail <sha256> [bytes]\n` +
+    `  context audit [path] [--global] [--json]\n` +
+    `  skill candidates [project]\n` +
+    `  skill approve <name> [--global] [--force] [--project path]\n` +
+    `  skill reject <name> [--project path]\n` +
+    `  benchmark --live --yes [--rounds N] [--model ID] [--task NAME]\n` +
+    `  test [--live --yes]`);
+}
+
+function flagValue(list, name, fallback = null) {
+  const index = list.indexOf(name);
+  return index >= 0 && index + 1 < list.length ? list[index + 1] : fallback;
+}
+
+function validSkillName(name) {
+  return /^[a-z0-9][a-z0-9-]{1,63}$/.test(name || '');
+}
+
+function projectArg(list) {
+  return path.resolve(flagValue(list, '--project', process.cwd()));
+}
+
+async function listSkillCandidates(project) {
+  const dir = path.join(project, '.codex-forge', 'skill-candidates');
+  const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
+  const names = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !validSkillName(entry.name)) continue;
+    try { await stat(path.join(dir, entry.name, 'SKILL.md')); names.push(entry.name); } catch {}
+  }
+  names.sort();
+  if (!names.length) console.log('No staged skill candidates.');
+  else for (const name of names) console.log(name);
+}
+
+async function approveSkill(name, list) {
+  if (!validSkillName(name)) throw new Error('invalid skill name; use lowercase letters, digits, and hyphens');
+  const project = projectArg(list);
+  const src = path.join(project, '.codex-forge', 'skill-candidates', name);
+  const skillFile = path.join(src, 'SKILL.md');
+  const content = await readFile(skillFile, 'utf8');
+  const declared = content.match(/^---[\s\S]*?^name:\s*([^\s#]+).*?^---/m)?.[1]?.trim();
+  if (declared && declared !== name) throw new Error(`candidate declares name=${declared}, expected ${name}`);
+  const global = list.includes('--global');
+  const destinationRoot = global ? path.join(os.homedir(), '.agents', 'skills') : path.join(project, '.agents', 'skills');
+  const dst = path.join(destinationRoot, name);
+  const exists = await stat(dst).then(() => true).catch(() => false);
+  if (exists && !list.includes('--force')) throw new Error(`destination already exists: ${dst}; pass --force to replace it`);
+  await mkdir(destinationRoot, { recursive: true });
+  if (exists) await rm(dst, { recursive: true, force: true });
+  await cp(src, dst, { recursive: true, force: true });
+  console.log(`[ok] approved ${name} -> ${dst}`);
+  console.log('Candidate remains staged for audit. Remove it only after reviewing the installed diff.');
+}
+
+async function rejectSkill(name, list) {
+  if (!validSkillName(name)) throw new Error('invalid skill name');
+  const project = projectArg(list);
+  const src = path.join(project, '.codex-forge', 'skill-candidates', name);
+  await stat(path.join(src, 'SKILL.md'));
+  const rejectedRoot = path.join(project, '.codex-forge', 'skill-rejected');
+  await mkdir(rejectedRoot, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const dst = path.join(rejectedRoot, `${stamp}-${name}`);
+  await rename(src, dst);
+  console.log(`[ok] rejected ${name} -> ${dst}`);
+}
+
+if (!cmd || cmd === 'help' || cmd === '--help') { help(); process.exit(0); }
+
+if (cmd === 'doctor') {
+  const checks = [
+    ['node >= 18', Number(process.versions.node.split('.')[0]) >= 18],
+    ['ocx installed', spawnSync('ocx', ['--help'], { stdio: 'ignore' }).status === 0],
+    ['codex installed', spawnSync('codex', ['--version'], { stdio: 'ignore' }).status === 0],
+  ];
+  for (const [name, ok] of checks) console.log(`[${ok ? 'ok' : 'ko'}] ${name}`);
+  const health = spawnSync('curl', ['-fsS', 'http://127.0.0.1:10100/healthz'], { stdio: 'ignore' }).status === 0;
+  console.log(`[${health ? 'ok' : 'info'}] OpenCodex proxy ${health ? 'reachable' : 'not running on :10100'}`);
+  const codeModeHost = spawnSync('sh', ['-lc', 'command -v codex-code-mode-host >/dev/null 2>&1'], { stdio: 'ignore' }).status === 0;
+  console.log(`[${codeModeHost ? 'ok' : 'info'}] Codex code-mode host ${codeModeHost ? 'available' : 'not found in PATH (PTC/code-mode must fall back safely)'}`);
+  process.exit(checks.some(([, ok]) => !ok) ? 1 : 0);
+}
+
 if (cmd === 'opencodex') {
   const sub = args.shift();
-  if (sub === 'install') { if (!args.includes('--yes')) { console.error('Refusing network install without --yes. Run: codex-forge opencodex install --yes'); process.exit(2); } run('npm', ['install','-g','@bitkyc08/opencodex']); }
-  if (['start','init','gui','doctor'].includes(sub)) run('ocx', [sub, ...args]);
-  if (sub === 'service') run('ocx', ['service','install', ...args]); help(); process.exit(2);
+  if (sub === 'install') {
+    if (!args.includes('--yes')) { console.error('Refusing network install without --yes. Run: codex-forge opencodex install --yes'); process.exit(2); }
+    run('npm', ['install', '-g', '@bitkyc08/opencodex']);
+  }
+  if (['start', 'init', 'gui', 'doctor'].includes(sub)) run('ocx', [sub, ...args]);
+  if (sub === 'service') run('ocx', ['service', 'install', ...args]);
+  help(); process.exit(2);
 }
+
 if (cmd === 'optimizer') {
   const sub = args.shift();
-  if (sub === 'start') { const child = spawn(process.execPath, [path.join(root,'optimizer/server.mjs')], { stdio:'inherit', env:process.env }); child.on('exit', code => process.exit(code ?? 1)); }
-  else if (sub === 'enable' || sub === 'disable') { const { setOptimizerRouting } = await import('../optimizer/codex-config.mjs'); try { const result = await setOptimizerRouting({ enable:sub === 'enable' }); console.log(result.changed ? `[ok] optimizer routing ${sub}d` : `[ok] already ${sub}d`); process.exit(0); } catch (error) { console.error(`[ko] ${error.message}`); process.exit(1); } }
-  else if (sub === 'stats') { const response = await fetch(`http://${process.env.CODEX_FORGE_LISTEN_HOST || '127.0.0.1'}:${process.env.CODEX_FORGE_LISTEN_PORT || 10101}/_codex_forge/stats`); console.log(JSON.stringify(await response.json(), null, 2)); process.exit(response.ok ? 0 : 1); }
-  else { help(); process.exit(2); }
-} else if (cmd === 'output') {
-  const sub = args.shift(); const hash = args.shift(); if (!hash) { help(); process.exit(2); }
-  const store = new OutputStore({ root:path.join(process.env.CODEX_FORGE_STATE_DIR || path.join(process.env.HOME || '.', '.codex-forge'), 'tool-output') });
-  if (sub === 'get') { const oi=args.indexOf('--offset'), li=args.indexOf('--length'); process.stdout.write(await store.get(hash,{offset:oi>=0?Number(args[oi+1]):0,length:li>=0?Number(args[li+1]):undefined})); process.exit(0); }
-  if (sub === 'tail') { const bytes=Number(args[0]||8192), file=store.file(hash), info=await import('node:fs/promises').then(m=>m.stat(file)); process.stdout.write(await store.get(hash,{offset:Math.max(0,info.size-bytes)})); process.exit(0); }
-  if (sub === 'grep') { for (const hit of await store.grep(hash,args.join(' '))) console.log(`${hit.line}:${hit.text}`); process.exit(0); }
+  if (sub === 'start') {
+    const child = spawn(process.execPath, [path.join(root, 'optimizer/server.mjs')], { stdio: 'inherit', env: process.env });
+    child.on('exit', (code) => process.exit(code ?? 1));
+  } else if (sub === 'enable' || sub === 'disable') {
+    const { setOptimizerRouting } = await import('../optimizer/codex-config.mjs');
+    try {
+      const result = await setOptimizerRouting({ enable: sub === 'enable' });
+      console.log(result.changed ? `[ok] optimizer routing ${sub}d` : `[ok] already ${sub}d`);
+      process.exit(0);
+    } catch (error) { console.error(`[ko] ${error.message}`); process.exit(1); }
+  } else if (sub === 'stats') {
+    try {
+      const response = await fetch(`http://${process.env.CODEX_FORGE_LISTEN_HOST || '127.0.0.1'}:${process.env.CODEX_FORGE_LISTEN_PORT || 10101}/_codex_forge/stats`);
+      console.log(JSON.stringify(await response.json(), null, 2));
+      process.exit(response.ok ? 0 : 1);
+    } catch (error) { console.error(`[ko] optimizer unavailable: ${error.message}`); process.exit(1); }
+  } else { help(); process.exit(2); }
+}
+
+if (cmd === 'output') {
+  const sub = args.shift(); const hash = args.shift();
+  if (!hash) { help(); process.exit(2); }
+  const store = new OutputStore({ root: path.join(process.env.CODEX_FORGE_STATE_DIR || path.join(process.env.HOME || '.', '.codex-forge'), 'tool-output') });
+  if (sub === 'get') {
+    const oi = args.indexOf('--offset'), li = args.indexOf('--length');
+    process.stdout.write(await store.get(hash, { offset: oi >= 0 ? Number(args[oi + 1]) : 0, length: li >= 0 ? Number(args[li + 1]) : undefined })); process.exit(0);
+  }
+  if (sub === 'tail') {
+    const bytes = Number(args[0] || 8192), file = store.file(hash), info = await stat(file);
+    process.stdout.write(await store.get(hash, { offset: Math.max(0, info.size - bytes) })); process.exit(0);
+  }
+  if (sub === 'grep') { for (const hit of await store.grep(hash, args.join(' '))) console.log(`${hit.line}:${hit.text}`); process.exit(0); }
   help(); process.exit(2);
-} else if (cmd === 'test') run('bash',[path.join(root,'scripts/test-all.sh'),...args],{env:process.env}); else { help(); process.exit(2); }
+}
+
+if (cmd === 'context') {
+  const sub = args.shift();
+  if (sub !== 'audit') { help(); process.exit(2); }
+  run(process.execPath, [path.join(root, 'scripts/context-audit.mjs'), ...args], { env: process.env });
+}
+
+if (cmd === 'skill') {
+  const sub = args.shift();
+  try {
+    if (sub === 'candidates') { await listSkillCandidates(path.resolve(args[0] && !args[0].startsWith('--') ? args[0] : process.cwd())); process.exit(0); }
+    if (sub === 'approve') { const name = args.shift(); await approveSkill(name, args); process.exit(0); }
+    if (sub === 'reject') { const name = args.shift(); await rejectSkill(name, args); process.exit(0); }
+  } catch (error) { console.error(`[ko] ${error.message}`); process.exit(1); }
+  help(); process.exit(2);
+}
+
+if (cmd === 'benchmark') run(process.execPath, [path.join(root, 'scripts/benchmark-live-ab.mjs'), ...args], { env: process.env });
+if (cmd === 'test') run('bash', [path.join(root, 'scripts/test-all.sh'), ...args], { env: process.env });
+
+help(); process.exit(2);
