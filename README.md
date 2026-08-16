@@ -2,128 +2,133 @@
 
 [![CI](https://github.com/SorbetUP/CodexForge/actions/workflows/ci.yml/badge.svg)](https://github.com/SorbetUP/CodexForge/actions/workflows/ci.yml)
 
-Portable token-efficiency stack for Codex.
+Portable quality + token-efficiency stack for Codex, with **OpenCodex as the primary provider/auth layer**.
 
-CodexForge bundles:
+CodexForge now combines OpenCodex for accounts/providers/model routing, a conservative exact-recovery token optimizer, RTK for compact shell output, Headroom as a legacy fallback, persistent project memory, focused Codex skills, and user-equivalent automated validation.
 
-- `Headroom` to compress LLM traffic through a local proxy
-- `RTK` to compact shell output before it reaches Codex
-- a Codex-native persistent memory layer inspired by `MemStack`
-
-The goal is simple: spend fewer tokens, keep multi-session work usable longer, and make the setup easy to reinstall on a new machine.
-
-## Quick Start
+## Quick start
 
 ```bash
 git clone https://github.com/SorbetUP/CodexForge.git
 cd CodexForge
 ./install.sh
+ocx start
+ocx init
+ocx doctor
 codex-stack-doctor
 codex-stack
 ```
 
-## Try It Now
+`install.sh` installs OpenCodex but deliberately does not authenticate accounts or accept risky OAuth warnings for you.
 
-If you want to test it immediately on your current machine:
+## OpenCodex
 
-```bash
-cd /Users/sorbet/Desktop/Dev/agent/CodexForge
-./install.sh
-~/.local/bin/codex-stack-doctor
-~/.local/bin/codex-stack --version
-```
-
-Expected result:
-
-- `codex-stack-doctor` should show only `[ok]`
-- `codex-stack --version` should print the Headroom wrapper banner, then `codex-cli ...`
-
-## GUI App (macOS)
-
-CodexForge can also be used with the Codex desktop app on macOS.
-
-The GUI path works differently from the CLI:
-
-- `AGENTS.md` and `.codex-memory` are already shared through `~/.codex`
-- `Headroom` must be injected into the app through the macOS GUI environment
-- this requires restarting `Codex.app` after enabling the environment
-
-Enable GUI mode:
+CodexForge treats OpenCodex as the source of truth for credentials/providers instead of rebuilding its account system.
 
 ```bash
-codexforge-gui-enable
+codex-forge opencodex doctor
+codex-forge opencodex gui
+codex-forge opencodex service
 ```
 
-Restart the app:
+See [`docs/OPENCODEX.md`](docs/OPENCODEX.md).
+
+## Optional token optimizer
+
+```text
+Codex -> CodexForge optimizer :10101 -> OpenCodex :10100 -> provider
+```
 
 ```bash
-codexforge-gui-restart
+codex-forge optimizer start
+codex-forge optimizer enable
+codex-forge optimizer stats
+# restore direct OpenCodex routing
+codex-forge optimizer disable
 ```
 
-Verify GUI mode:
+The config editor is fail-closed: it only rewrites the exact standard local OpenCodex URL and refuses an unknown/corporate/custom `openai_base_url`.
+
+### Exact tool-output recovery
+
+Inspired by Codex Router's tool-result aging, CodexForge stops replaying eligible old large tool results after the model has acted on them. The exact original is stored locally under SHA-256 with private permissions, rather than telling the model to rerun a potentially side-effecting tool.
 
 ```bash
-codexforge-gui-doctor
+codex-forge output get SHA256
+codex-forge output grep SHA256 'needle'
+codex-forge output tail SHA256 8192
 ```
 
-Disable GUI mode:
+Defaults: 32 KiB minimum, newest 4 tool outputs protected byte-for-byte, 512 MiB bounded exact-output store, 7-day retention. See [`docs/TOKEN_EFFICIENCY.md`](docs/TOKEN_EFFICIENCY.md).
+
+## Skills
+
+CodexForge includes focused skills under `.agents/skills` and installs them to `$HOME/.agents/skills`:
+
+- `$opencodex-operator`
+- `$real-user-validation`
+- `$token-efficiency`
+- `$cost-quality-routing`
+- `$provider-safety`
+
+They follow Codex's current `SKILL.md` model and stay deliberately narrow so the skill catalog itself remains cheap in context.
+
+## Tests: proof like a user
 
 ```bash
-codexforge-gui-disable
+codex-forge test
+# or
+scripts/test-all.sh
 ```
 
-## What It Does
+The deterministic suite uses actual local HTTP sockets, streamed SSE, subprocess CLI calls, isolated HOME/state directories, exact filesystem assertions and negative safety checks. Unit tests supplement rather than replace the user-facing flow.
 
-- installs `Headroom` into an isolated virtualenv under `~/.codex-stack/venv`
-- installs `RTK` if missing
-- creates a `codex-stack` launcher in `~/.local/bin`
-- routes Codex through `Headroom` with `headroom wrap codex --no-rtk`
-- configures `RTK` globally for Codex via `rtk init -g --codex`
-- adds global Codex guidance in `~/.codex/CODEX_STACK.md`
-- avoids polluting every project with auto-generated local `AGENTS.md` files
-- provides a script to initialize persistent project memory
-
-## Install
+A real provider test is opt-in because it consumes quota:
 
 ```bash
-git clone https://github.com/SorbetUP/CodexForge.git
-cd CodexForge
-./install.sh
+scripts/test-all.sh --live --yes
 ```
 
-Then launch Codex with:
+It initializes a scratch git repo, invokes the real `codex exec` surface, asks the agent to read a file and create another, then verifies the exact artifact. See [`docs/TESTING.md`](docs/TESTING.md).
+
+## Synthetic optimizer benchmark
 
 ```bash
-codex-stack
+node scripts/benchmark-aging.mjs
 ```
 
-## Verify
+This reports controlled byte savings, not claimed billed-token savings. Real savings depend on tokenizer, provider caching and workload.
 
-```bash
-codex-stack-doctor
-```
-
-You can also check that Codex launches through Headroom:
-
-```bash
-codex-stack --version
-```
-
-## Project Memory
-
-In any project:
+## Project memory
 
 ```bash
 ./init-project-memory.sh /path/to/project
 ```
 
-The script creates:
+Creates `.codex-memory/{PROJECT,DECISIONS,TASKS,SESSION}.md` plus compact `AGENTS.md` guidance so Codex can reuse durable state rather than repeatedly rediscovering the repository.
 
-- `.codex-memory/PROJECT.md`
-- `.codex-memory/DECISIONS.md`
-- `.codex-memory/TASKS.md`
-- `.codex-memory/SESSION.md`
-- `AGENTS.md` with compact rules that push Codex to reuse memory instead of re-reading the whole repository
+## GUI app (macOS)
+
+```bash
+codexforge-gui-enable
+codexforge-gui-restart
+codexforge-gui-doctor
+codexforge-gui-disable
+```
+
+The GUI helper now preserves OpenCodex as the default route. A launchctl `OPENAI_BASE_URL` override would bypass OpenCodex, so it is removed in normal mode. Legacy Headroom GUI routing remains available only with `CODEX_FORGE_LEGACY_HEADROOM=1`.
+
+## Legacy Headroom fallback
+
+When OpenCodex is installed, `codex-stack` launches Codex directly so OpenCodex's config remains authoritative. To intentionally use the old wrapper:
+
+```bash
+CODEX_FORGE_LEGACY_HEADROOM=1 codex-stack
+```
+
+## Cost/quality principles
+
+Keep reusable prompt/tool prefixes stable, avoid volatile data in common prefixes, prefer targeted reads and diffs, use OpenCodex's context compaction, cache deterministic expensive preprocessing, and escalate reasoning/model strength only when verification says the cheaper path is insufficient. Provider-specific caching flags are not injected blindly into arbitrary routed requests.
 
 ## Uninstall
 
@@ -131,10 +136,4 @@ The script creates:
 ./uninstall.sh
 ```
 
-## Notes
-
-- `MemStack` is designed for Claude Code. CodexForge adapts the same useful idea, persistent compact memory, using files and conventions that Codex can read directly.
-- `Headroom` does not permanently rewrite your whole shell environment. `OPENAI_BASE_URL` is injected by `codex-stack`.
-- `RTK` remains globally installed because that is how it integrates with Codex.
-- For the macOS desktop app, `OPENAI_BASE_URL` is injected with `launchctl setenv`, then applied after restarting `Codex.app`.
-- Sources: [Headroom](https://github.com/chopratejas/headroom), [RTK](https://github.com/rtk-ai/rtk), [MemStack](https://github.com/cwinvestments/memstack)
+The uninstaller restores direct OpenCodex routing if the optimizer is enabled and leaves OpenCodex installed because it may be used independently.

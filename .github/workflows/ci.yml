@@ -4,24 +4,28 @@ on:
   push:
     branches:
       - main
+      - feature/**
   pull_request:
 
 jobs:
-  validate-shell:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Validate shell syntax
         run: |
           bash -n install.sh
           bash -n uninstall.sh
           bash -n init-project-memory.sh
           bash -n bootstrap.sh
-          bash -n templates/codex-stack.sh
-          bash -n templates/codex-stack-doctor.sh
-
+          bash -n templates/*.sh
+          bash -n scripts/*.sh
+          bash -n tests/e2e/*.sh
       - name: Validate project-memory bootstrap
         run: |
           tmpdir="$(mktemp -d)"
@@ -31,3 +35,7 @@ jobs:
           test -f "$tmpdir/.codex-memory/TASKS.md"
           test -f "$tmpdir/.codex-memory/SESSION.md"
           test -f "$tmpdir/AGENTS.md"
+      - name: Run deterministic user-equivalent suite
+        run: bash scripts/test-all.sh
+      - name: Run synthetic token-efficiency benchmark
+        run: node scripts/benchmark-aging.mjs
