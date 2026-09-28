@@ -9,6 +9,7 @@ CodexForge bundles:
 - `Headroom` to compress LLM traffic through a local proxy
 - `RTK` to compact shell output before it reaches Codex
 - a Codex-native persistent memory layer inspired by `MemStack`
+- `cnb`, a persistent Jupyter-kernel CLI so Codex can work cell-by-cell without restarting expensive notebook state
 
 The goal is simple: spend fewer tokens, keep multi-session work usable longer, and make the setup easy to reinstall on a new machine.
 
@@ -80,7 +81,8 @@ codexforge-gui-disable
 - routes Codex through `Headroom` with `headroom wrap codex --no-rtk`
 - configures `RTK` globally for Codex via `rtk init -g --codex`
 - adds global Codex guidance in `~/.codex/CODEX_STACK.md`
-- installs two reusable Codex skills for reviewed changes and long-horizon project builds
+- installs three reusable Codex skills for reviewed changes, long-horizon project builds, and persistent notebook operation
+- installs `cnb` in an isolated CodexForge environment while allowing notebook kernels to run in the project Python environment
 - installs dedicated Luna review subagents with cost-aware reasoning levels
 - avoids polluting every project with auto-generated local `AGENTS.md` files
 - provides a script to initialize persistent project memory
@@ -127,12 +129,13 @@ The script creates:
 - `.codex-memory/SESSION.md`
 - `AGENTS.md` with compact rules that push Codex to reuse memory instead of re-reading the whole repository
 
-## Review Workflows
+## Agent Workflows
 
-CodexForge installs two global skills under `~/.codex/skills`:
+CodexForge installs three global skills under `~/.codex/skills`:
 
 - `$forge-reviewed-change`: for bounded changes that still need independent preflight, implementation review, adversarial review, and deterministic validation.
 - `$forge-project-build`: for large projects or major rewrites driven by a technical specification, with architecture gates, vertical slices, persistent project memory, requirement traceability, and final system review.
+- `$forge-notebook-operator`: for Python/Jupyter notebooks operated incrementally through a persistent kernel, with live-state inspection and minimal dependency replay through `cnb`.
 
 It also installs three read-only custom subagents under `~/.codex/agents`:
 
@@ -148,7 +151,30 @@ Example:
 $forge-reviewed-change Fix the cache invalidation bug and review the implementation before declaring it done.
 
 $forge-project-build Implement this project from TECHNICAL_SPEC.md. Use the specification as the source of truth and stop each phase at its validation gate.
+
+$forge-notebook-operator Work incrementally in analysis.ipynb. Keep the current kernel and avoid recomputing expensive state unless dependencies require it.
 ```
+
+## Persistent Jupyter Notebooks
+
+CodexForge vendors `codex-notebook-cli` 0.3.0 and installs the `cnb` command.
+
+The CLI keeps a Jupyter kernel alive across independent terminal commands, records live execution state separately from the `.ipynb`, tracks symbol-level cell dependencies, and can propose the minimum stale cells to replay.
+
+Typical flow:
+
+```bash
+cnb start analysis.ipynb --python .venv/bin/python
+cnb list analysis.ipynb
+cnb vars analysis.ipynb
+cnb deps analysis.ipynb 12
+cnb plan analysis.ipynb 18
+cnb run analysis.ipynb 18 --deps
+```
+
+`cnb start` can select the project interpreter explicitly with `--python`. Without it, the CLI checks `CNB_KERNEL_PYTHON`, the active `VIRTUAL_ENV`, project-local `.venv` / `venv` environments, and then normal Python fallbacks. This lets the `cnb` controller stay isolated inside CodexForge while the actual kernel still sees the project's pandas, PyTorch, CUDA stack, and other dependencies.
+
+The source package, README, and tests are contained in `vendor/codex-notebook-cli-0.3.0.tar.gz`.
 
 ## Uninstall
 

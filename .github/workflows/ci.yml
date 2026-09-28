@@ -31,6 +31,7 @@ jobs:
           skills = [
               Path("templates/skills/forge-reviewed-change/SKILL.md"),
               Path("templates/skills/forge-project-build/SKILL.md"),
+              Path("templates/skills/forge-notebook-operator/SKILL.md"),
           ]
           for path in skills:
               text = path.read_text()
@@ -52,6 +53,17 @@ jobs:
               assert data["model"] == "gpt-6-luna", f"{path}: unexpected model"
               assert data["sandbox_mode"] == "read-only", f"{path}: reviewer must stay read-only"
           PY
+
+      - name: Validate persistent notebook CLI
+        run: |
+          srcdir="$(mktemp -d)"
+          venvdir="$(mktemp -d)"
+          tar -xzf vendor/codex-notebook-cli-0.3.0.tar.gz -C "$srcdir"
+          python3 -m venv "$venvdir"
+          "$venvdir/bin/python" -m pip install --upgrade pip
+          "$venvdir/bin/python" -m pip install "$srcdir"
+          "$venvdir/bin/python" -m unittest discover -s "$srcdir/tests" -v
+          "$venvdir/bin/cnb" --help >/dev/null
 
       - name: Validate project-memory bootstrap
         run: |

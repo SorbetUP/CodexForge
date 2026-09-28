@@ -5,7 +5,7 @@ STACK_HOME="${HOME}/.codex-stack"
 BIN_DIR="${HOME}/.local/bin"
 CODEX_DIR="${HOME}/.codex"
 
-rm -f "${BIN_DIR}/codex-stack" "${BIN_DIR}/codex-stack-doctor" "${BIN_DIR}/codexforge-gui-enable" "${BIN_DIR}/codexforge-gui-disable" "${BIN_DIR}/codexforge-gui-doctor" "${BIN_DIR}/codexforge-gui-restart"
+rm -f "${BIN_DIR}/codex-stack" "${BIN_DIR}/codex-stack-doctor" "${BIN_DIR}/codexforge-gui-enable" "${BIN_DIR}/codexforge-gui-disable" "${BIN_DIR}/codexforge-gui-doctor" "${BIN_DIR}/codexforge-gui-restart" "${BIN_DIR}/cnb"
 rm -rf "${STACK_HOME}"
 launchctl unsetenv OPENAI_BASE_URL >/dev/null 2>&1 || true
 
@@ -36,7 +36,7 @@ PY
 fi
 
 rm -f "${CODEX_DIR}/CODEX_STACK.md"
-rm -rf "${CODEX_DIR}/skills/forge-reviewed-change" "${CODEX_DIR}/skills/forge-project-build"
+rm -rf "${CODEX_DIR}/skills/forge-reviewed-change" "${CODEX_DIR}/skills/forge-project-build" "${CODEX_DIR}/skills/forge-notebook-operator"
 rm -f "${CODEX_DIR}/agents/forge-reviewer-medium.toml" "${CODEX_DIR}/agents/forge-adversary-medium.toml" "${CODEX_DIR}/agents/forge-architect-high.toml"
 
 printf '%s\n' "Desinstallation terminee."
