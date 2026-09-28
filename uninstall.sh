@@ -36,5 +36,7 @@ PY
 fi
 
 rm -f "${CODEX_DIR}/CODEX_STACK.md"
+rm -rf "${CODEX_DIR}/skills/forge-reviewed-change" "${CODEX_DIR}/skills/forge-project-build"
+rm -f "${CODEX_DIR}/agents/forge-reviewer-medium.toml" "${CODEX_DIR}/agents/forge-adversary-medium.toml" "${CODEX_DIR}/agents/forge-architect-high.toml"
 
 printf '%s\n' "Desinstallation terminee."
