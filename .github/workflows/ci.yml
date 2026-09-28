@@ -22,6 +22,49 @@ jobs:
           bash -n templates/codex-stack.sh
           bash -n templates/codex-stack-doctor.sh
 
+      - name: Validate Codex skills and agents
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import tomllib
+
+          skills = [
+              Path("templates/skills/forge-reviewed-change/SKILL.md"),
+              Path("templates/skills/forge-project-build/SKILL.md"),
+              Path("templates/skills/forge-notebook-operator/SKILL.md"),
+          ]
+          for path in skills:
+              text = path.read_text()
+              assert text.startswith("---\n"), f"{path}: missing YAML front matter"
+              front = text.split("---\n", 2)[1]
+              assert "name:" in front, f"{path}: missing name"
+              assert "description:" in front, f"{path}: missing description"
+
+          agents = [
+              Path("templates/agents/forge-reviewer-medium.toml"),
+              Path("templates/agents/forge-adversary-medium.toml"),
+              Path("templates/agents/forge-architect-high.toml"),
+          ]
+          for path in agents:
+              with path.open("rb") as handle:
+                  data = tomllib.load(handle)
+              for key in ("name", "description", "developer_instructions", "model", "model_reasoning_effort", "sandbox_mode"):
+                  assert data.get(key), f"{path}: missing {key}"
+              assert data["model"] == "gpt-6-luna", f"{path}: unexpected model"
+              assert data["sandbox_mode"] == "read-only", f"{path}: reviewer must stay read-only"
+          PY
+
+      - name: Validate persistent notebook CLI
+        run: |
+          srcdir="$(mktemp -d)"
+          venvdir="$(mktemp -d)"
+          tar -xzf vendor/codex-notebook-cli-0.3.0.tar.gz -C "$srcdir"
+          python3 -m venv "$venvdir"
+          "$venvdir/bin/python" -m pip install --upgrade pip
+          "$venvdir/bin/python" -m pip install "$srcdir"
+          "$venvdir/bin/python" -m unittest discover -s "$srcdir/tests" -v
+          "$venvdir/bin/cnb" --help >/dev/null
+
       - name: Validate project-memory bootstrap
         run: |
           tmpdir="$(mktemp -d)"

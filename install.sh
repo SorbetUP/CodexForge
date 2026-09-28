@@ -5,7 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STACK_HOME="${HOME}/.codex-stack"
 BIN_DIR="${HOME}/.local/bin"
 CODEX_DIR="${HOME}/.codex"
+SKILLS_DIR="${CODEX_DIR}/skills"
+AGENTS_DIR="${CODEX_DIR}/agents"
 VENV_DIR="${STACK_HOME}/venv"
+NOTEBOOK_VENV="${STACK_HOME}/notebook-venv"
 HEADROOM_PYTHON="${VENV_DIR}/bin/python"
 HEADROOM_BIN="${VENV_DIR}/bin/headroom"
 
@@ -40,6 +43,18 @@ install_headroom() {
   log "Installation ou mise a jour de Headroom..."
   "${HEADROOM_PYTHON}" -m pip install --upgrade pip >/dev/null
   "${HEADROOM_PYTHON}" -m pip install --upgrade 'headroom-ai[proxy]' >/dev/null
+}
+
+install_notebook_cli() {
+  if [[ ! -x "${NOTEBOOK_VENV}/bin/python" ]]; then
+    log "Creation du venv codex-notebook-cli..."
+    python3 -m venv "${NOTEBOOK_VENV}"
+  fi
+
+  log "Installation ou mise a jour de codex-notebook-cli..."
+  "${NOTEBOOK_VENV}/bin/python" -m pip install --upgrade pip >/dev/null
+  "${NOTEBOOK_VENV}/bin/python" -m pip install --upgrade "${ROOT_DIR}/vendor/codex-notebook-cli-0.3.0.tar.gz" >/dev/null
+  ln -sf "${NOTEBOOK_VENV}/bin/cnb" "${BIN_DIR}/cnb"
 }
 
 install_rtk() {
@@ -118,6 +133,21 @@ write_codex_docs() {
     "@CODEX_STACK.md"
 }
 
+install_codex_workflows() {
+  mkdir -p "${SKILLS_DIR}" "${AGENTS_DIR}"
+
+  local skill
+  for skill in forge-reviewed-change forge-project-build forge-notebook-operator; do
+    rm -rf "${SKILLS_DIR}/${skill}"
+    cp -R "${ROOT_DIR}/templates/skills/${skill}" "${SKILLS_DIR}/${skill}"
+  done
+
+  local agent
+  for agent in forge-reviewer-medium.toml forge-adversary-medium.toml forge-architect-high.toml; do
+    cp "${ROOT_DIR}/templates/agents/${agent}" "${AGENTS_DIR}/${agent}"
+  done
+}
+
 configure_rtk_for_codex() {
   if ! command -v rtk >/dev/null 2>&1; then
     log "RTK introuvable apres installation."
@@ -130,10 +160,12 @@ configure_rtk_for_codex() {
 
 main() {
   install_headroom
+  install_notebook_cli
   install_rtk
   write_launcher
   configure_rtk_for_codex
   write_codex_docs
+  install_codex_workflows
   ensure_path_hint
 
   log ""
@@ -141,6 +173,10 @@ main() {
   log "Commande de lancement : codex-stack"
   log "Verification : codex-stack-doctor"
   log "Memoire projet : ${ROOT_DIR}/init-project-memory.sh /chemin/projet"
+  log 'Skill tache revue : $forge-reviewed-change'
+  log 'Skill gros projet : $forge-project-build'
+  log 'Skill notebook persistant : $forge-notebook-operator'
+  log 'Notebook CLI : cnb'
 }
 
 main "$@"
