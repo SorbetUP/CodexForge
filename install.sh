@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STACK_HOME="${HOME}/.codex-stack"
 BIN_DIR="${HOME}/.local/bin"
 CODEX_DIR="${HOME}/.codex"
+SKILLS_DIR="${CODEX_DIR}/skills"
+AGENTS_DIR="${CODEX_DIR}/agents"
 VENV_DIR="${STACK_HOME}/venv"
 HEADROOM_PYTHON="${VENV_DIR}/bin/python"
 HEADROOM_BIN="${VENV_DIR}/bin/headroom"
@@ -118,6 +120,21 @@ write_codex_docs() {
     "@CODEX_STACK.md"
 }
 
+install_codex_workflows() {
+  mkdir -p "${SKILLS_DIR}" "${AGENTS_DIR}"
+
+  local skill
+  for skill in forge-reviewed-change forge-project-build; do
+    rm -rf "${SKILLS_DIR}/${skill}"
+    cp -R "${ROOT_DIR}/templates/skills/${skill}" "${SKILLS_DIR}/${skill}"
+  done
+
+  local agent
+  for agent in forge-reviewer-medium.toml forge-adversary-medium.toml forge-architect-high.toml; do
+    cp "${ROOT_DIR}/templates/agents/${agent}" "${AGENTS_DIR}/${agent}"
+  done
+}
+
 configure_rtk_for_codex() {
   if ! command -v rtk >/dev/null 2>&1; then
     log "RTK introuvable apres installation."
@@ -134,6 +151,7 @@ main() {
   write_launcher
   configure_rtk_for_codex
   write_codex_docs
+  install_codex_workflows
   ensure_path_hint
 
   log ""
@@ -141,6 +159,8 @@ main() {
   log "Commande de lancement : codex-stack"
   log "Verification : codex-stack-doctor"
   log "Memoire projet : ${ROOT_DIR}/init-project-memory.sh /chemin/projet"
+  log "Skill tache revue : $forge-reviewed-change"
+  log "Skill gros projet : $forge-project-build"
 }
 
 main "$@"
