@@ -80,6 +80,8 @@ codexforge-gui-disable
 - routes Codex through `Headroom` with `headroom wrap codex --no-rtk`
 - configures `RTK` globally for Codex via `rtk init -g --codex`
 - adds global Codex guidance in `~/.codex/CODEX_STACK.md`
+- installs two reusable Codex skills for reviewed changes and long-horizon project builds
+- installs dedicated Luna review subagents with cost-aware reasoning levels
 - avoids polluting every project with auto-generated local `AGENTS.md` files
 - provides a script to initialize persistent project memory
 
@@ -124,6 +126,29 @@ The script creates:
 - `.codex-memory/TASKS.md`
 - `.codex-memory/SESSION.md`
 - `AGENTS.md` with compact rules that push Codex to reuse memory instead of re-reading the whole repository
+
+## Review Workflows
+
+CodexForge installs two global skills under `~/.codex/skills`:
+
+- `$forge-reviewed-change`: for bounded changes that still need independent preflight, implementation review, adversarial review, and deterministic validation.
+- `$forge-project-build`: for large projects or major rewrites driven by a technical specification, with architecture gates, vertical slices, persistent project memory, requirement traceability, and final system review.
+
+It also installs three read-only custom subagents under `~/.codex/agents`:
+
+- `forge_reviewer_medium`: GPT-6 Luna at `medium` effort for focused correctness, regression, contract, and test review.
+- `forge_adversary_medium`: GPT-6 Luna at `medium` effort for falsification, edge cases, and challenging false consensus.
+- `forge_architect_high`: GPT-6 Luna at `high` effort for architecture and specification decisions that justify deeper reasoning.
+
+The skills deliberately avoid using high reasoning everywhere. Medium-effort agents handle bounded independent reviews; high effort is reserved for architecture, cross-cutting decisions, or escalation when evidence conflicts.
+
+Example:
+
+```text
+$forge-reviewed-change Fix the cache invalidation bug and review the implementation before declaring it done.
+
+$forge-project-build Implement this project from TECHNICAL_SPEC.md. Use the specification as the source of truth and stop each phase at its validation gate.
+```
 
 ## Uninstall
 
