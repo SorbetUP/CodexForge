@@ -159,8 +159,8 @@ main() {
   log "Commande de lancement : codex-stack"
   log "Verification : codex-stack-doctor"
   log "Memoire projet : ${ROOT_DIR}/init-project-memory.sh /chemin/projet"
-  log "Skill tache revue : $forge-reviewed-change"
-  log "Skill gros projet : $forge-project-build"
+  log 'Skill tache revue : $forge-reviewed-change'
+  log 'Skill gros projet : $forge-project-build'
 }
 
 main "$@"
